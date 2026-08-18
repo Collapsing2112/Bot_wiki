@@ -2,32 +2,703 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>我的静态Wiki</title>
-    <link rel="stylesheet" href="css/style.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.6.0/styles/github.min.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nuki Wiki RE</title>
+    
+    <!-- 外部依赖 -->
+    <script src="https://cdn.jsdelivr.net/npm/marked@4.3.0/marked.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+    
+    <style>
+        /* 现代化 CSS 变量系统 */
+        :root {
+            --primary-color: #2563eb;
+            --secondary-color: #64748b;
+            --success-color: #10b981;
+            --warning-color: #f59e0b;
+            --danger-color: #ef4444;
+            
+            --bg-primary: #ffffff;
+            --bg-secondary: #f8fafc;
+            --bg-tertiary: #f1f5f9;
+            --bg-hover: #e2e8f0;
+            --bg-code: #f8fafc;
+            
+            --text-primary: #0f172a;
+            --text-secondary: #475569;
+            --text-muted: #94a3b8;
+            
+            --border-light: #b8bdc256;
+            --border-medium: #000000;
+            
+            --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+            --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+            --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+            
+            --radius-sm: 0.375rem;
+            --radius-md: 0.5rem;
+            --radius-lg: 0.75rem;
+            
+            --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* 深色主题 */
+        [data-theme="dark"] {
+            --bg-primary: #0f172a;
+            --bg-secondary: #1e293b;
+            --bg-tertiary: #334155;
+            --bg-hover: #475569;
+            --bg-code: #1e293b;
+            
+            --text-primary: #f8fafc;
+            --text-secondary: #cbd5e1;
+            
+            --border-light: #72777f60;
+            --border-medium: #ffffff;
+            
+            --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.3);
+            --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.4);
+            --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.5);
+        }
+
+        /* 基础样式重置 */
+        *, *::before, *::after {
+            box-sizing: border-box;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+        }
+
+        html, body {
+            height: 100%;
+            overflow: hidden; /* 防止整个页面滚动 */
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            color: var(--text-primary);
+            background-color: var(--bg-primary);
+            transition: var(--transition);
+            font-size: 15px;
+        }
+
+        /* 修复后的主布局 - 重点修复 */
+        .app-container {
+            display: flex; /* 改用 flex 而不是 grid */
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+        }
+
+        /* 侧边栏 - 修复滚动问题 */
+        .sidebar {
+            width: 280px;
+            min-width: 280px; /* 防止压缩 */
+            height: 100vh; /* 明确高度 */
+            background: var(--bg-secondary);
+            border-right: 1px solid var(--border-light);
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0; /* 防止缩放 */
+        }
+
+        .sidebar-header {
+            padding: 0.7rem 1.15rem;
+            border-bottom: 1px solid var(--border-light);
+            background: var(--bg-tertiary);
+            flex-shrink: 0; /* 头部不缩放 */
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 0.15rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .logo-icon {
+            font-size: 1.5rem;
+        }
+
+        .logo-text {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .theme-toggle {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            width: 100%;
+            padding: 0.75rem;
+            background: var(--bg-primary);
+            border: 1px solid var(--border-light);
+            border-radius: var(--radius-md);
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: var(--transition);
+            font-size: 0.875rem;
+        }
+
+        .theme-toggle:hover {
+            background: var(--bg-hover);
+            color: var(--text-primary);
+        }
+
+        /* 修复侧边栏内容滚动 - 关键修复 */
+        .sidebar-content {
+            flex: 1; /* 占据剩余空间 */
+            padding: 1rem;
+            overflow-y: auto; /* 确保可以滚动 */
+            overflow-x: hidden;
+            min-height: 0; /* 重要：允许 flex 项目缩小 */
+        }
+
+        /* 文件树样式 */
+        .file-tree {
+            list-style: none;
+        }
+
+        .category {
+            margin-bottom: 1.5rem;
+        }
+
+        .category-header {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.75rem;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-light);
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            font-weight: 600;
+            color: var(--text-primary);
+            transition: var(--transition);
+            user-select: none;
+        }
+
+        .category-header:hover {
+            background: var(--bg-hover);
+            transform: translateY(-1px);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .category-icon {
+            font-size: 0.875rem;
+            transition: transform 0.2s ease;
+        }
+
+        .category.collapsed .category-icon {
+            transform: rotate(-90deg);
+        }
+
+        .category-arrow {
+            margin-left: auto;
+            transition: transform 0.2s ease;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+        
+        .category-arrow.collapsed {
+            transform: rotate(-90deg);
+        }
+        
+        .category-header:hover .category-arrow {
+            color: var(--text-primary);
+        }
+
+        .category-files {
+            margin-top: 0.5rem;
+            margin-left: 1rem;
+            border-left: 1px solid var(--border-light);
+            padding-left: 1rem;
+        }
+
+        .file-link {
+            display: block;
+            padding: 0.625rem 0.75rem;
+            color: var(--text-secondary);
+            text-decoration: none;
+            border-radius: var(--radius-sm);
+            margin-bottom: 0.25rem;
+            transition: var(--transition);
+            font-size: 0.875rem;
+            position: relative;
+        }
+
+        .file-link::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 3px;
+            background: var(--primary-color);
+            border-radius: 0 2px 2px 0;
+            opacity: 0;
+            transition: var(--transition);
+        }
+
+        .file-link:hover {
+            background: var(--bg-hover);
+            color: var(--text-primary);
+            transform: translateX(2px);
+        }
+
+        .file-link.active {
+            background: linear-gradient(135deg, var(--primary-color), #3b82f6);
+            color: white;
+            font-weight: 500;
+            box-shadow: var(--shadow-md);
+        }
+
+        .file-link.active::before {
+            opacity: 1;
+        }
+
+        /* 主内容区 - 修复滚动问题 */
+        .main-content {
+            flex: 1; /* 占据剩余空间 */
+            height: 100vh; /* 明确高度 */
+            display: flex;
+            flex-direction: column;
+            overflow: hidden; /* 防止整个区域滚动 */
+            min-width: 0; /* 允许缩小 */
+        }
+
+        .content-header {
+            padding: 0.7rem 2rem;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-light);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-shrink: 0; /* 头部不缩放 */
+        }
+
+        .page-title {
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 0.0rem;
+        }
+
+        .fireworks-toggle {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.75rem 1.25rem;
+            background: linear-gradient(135deg, var(--primary-color), #3b82f6);
+            color: white;
+            border: none;
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            font-weight: 500;
+            font-size: 0.875rem;
+            transition: var(--transition);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .fireworks-toggle:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        /* 修复内容主体滚动 - 关键修复 */
+        .content-body {
+            flex: 1; /* 占据剩余空间 */
+            padding: 2rem;
+            background: var(--bg-primary);
+            overflow-y: auto; /* 确保可以滚动 */
+            overflow-x: hidden;
+            min-height: 0; /* 重要：允许 flex 项目缩小 */
+        }
+
+        /* 内容容器 */
+        #content {
+            max-width: 1100px;
+            margin: 0 auto;
+            min-height: 100%; /* 确保内容至少占满容器 */
+            padding-bottom: 2rem; /* 底部留白 */
+        }
+
+        /* Markdown 内容样式 */
+        .markdown-content {
+            line-height: 1.7;
+        }
+
+        .markdown-content h1,
+        .markdown-content h2,
+        .markdown-content h3,
+        .markdown-content h4,
+        .markdown-content h5,
+        .markdown-content h6 {
+            color: var(--text-primary);
+            margin: 1rem 0 1rem 0;
+            line-height: 1.0;
+            font-weight: 700;
+        }
+
+        .markdown-content h1:first-child,
+        .markdown-content h2:first-child,
+        .markdown-content h3:first-child {
+            margin-top: 0; /* 第一个标题去掉上边距 */
+        }
+
+        .markdown-content h1 {
+            font-size: 2.25rem;
+            border-bottom: 2px solid var(--border-medium);
+            padding-bottom: 0.75rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .markdown-content h2 {
+            font-size: 1.875rem;
+            border-bottom: 1px solid var(--border-light);
+            padding-bottom: 0.5rem;
+        }
+
+        .markdown-content h3 {
+            font-size: 1.5rem;
+        }
+
+        .markdown-content h4 {
+            font-size: 1.25rem;
+        }
+
+        .markdown-content p {
+            margin-bottom: 1.25rem;
+            color: var(--text-primary);
+        }
+
+        .markdown-content a {
+            color: var(--primary-color);
+            text-decoration: none;
+            border-bottom: 1px solid transparent;
+            transition: var(--transition);
+        }
+
+        .markdown-content a:hover {
+            border-bottom-color: var(--primary-color);
+        }
+
+        .markdown-content ul,
+        .markdown-content ol {
+            margin: 1rem 0;
+            padding-left: 2rem;
+        }
+
+        .markdown-content li {
+            margin-bottom: 0.5rem;
+        }
+
+        .markdown-content blockquote {
+            margin: 1.5rem 0;
+            padding: 1rem 1.5rem;
+            background: var(--bg-secondary);
+            border-left: 4px solid var(--primary-color);
+            border-radius: 0 var(--radius-md) var(--radius-md) 0;
+            color: var(--text-secondary);
+            font-style: italic;
+        }
+
+        .markdown-content code {
+            background: var(--bg-code);
+            padding: 0.25rem 0.5rem;
+            border-radius: var(--radius-sm);
+            font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+            font-size: 0.875em;
+            color: var(--danger-color);
+            border: 1px solid var(--border-light);
+        }
+
+        .markdown-content pre {
+            background: var(--bg-code);
+            padding: 1.5rem;
+            border-radius: var(--radius-lg);
+            overflow-x: auto;
+            margin: 1.5rem 0;
+            border: 1px solid var(--border-light);
+            position: relative;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .markdown-content pre code {
+            background: none;
+            padding: 0;
+            border: none;
+            color: var(--text-primary);
+            font-size: 0.875rem;
+        }
+
+        .markdown-content table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1.5rem 0;
+            background: var(--bg-secondary);
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .markdown-content th,
+        .markdown-content td {
+            padding: 0.75rem 1rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border-light);
+        }
+
+        .markdown-content th {
+            background: var(--bg-tertiary);
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .markdown-content tr:hover {
+            background: var(--bg-hover);
+        }
+
+        /* 代码复制按钮 */
+        .code-copy-button {
+            position: absolute;
+            top: 2.7rem;
+            right: 1rem;
+            padding: 0.5rem 0.75rem;
+            background: var(--bg-tertiary);
+            color: var(--text-secondary);
+            border: 1px solid var(--border-light);
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            font-size: 0.75rem;
+            opacity: 0;
+            transition: var(--transition);
+        }
+
+        .code-copy-button:hover {
+            background: var(--bg-hover);
+            color: var(--text-primary);
+        }
+
+        pre:hover .code-copy-button {
+            opacity: 1;
+        }
+
+        /* 烟花容器 */
+        .fireworks-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1000;
+        }
+
+        /* 自定义滚动条 - 重要修复 */
+        .sidebar-content::-webkit-scrollbar,
+        .content-body::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .sidebar-content::-webkit-scrollbar-track,
+        .content-body::-webkit-scrollbar-track {
+            background: var(--bg-secondary);
+            border-radius: 4px;
+        }
+
+        .sidebar-content::-webkit-scrollbar-thumb,
+        .content-body::-webkit-scrollbar-thumb {
+            background: var(--border-medium);
+            border-radius: 4px;
+        }
+
+        .sidebar-content::-webkit-scrollbar-thumb:hover,
+        .content-body::-webkit-scrollbar-thumb:hover {
+            background: var(--text-muted);
+        }
+
+        /* Firefox 滚动条 */
+        .sidebar-content,
+        .content-body {
+            scrollbar-width: thin;
+            scrollbar-color: var(--border-medium) var(--bg-secondary);
+        }
+
+        /* 响应式设计 */
+        @media (max-width: 1024px) {
+            .sidebar {
+                width: 260px;
+                min-width: 260px;
+            }
+            
+            .content-body {
+                padding: 1.5rem;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .app-container {
+                flex-direction: column; /* 移动端改为垂直布局 */
+            }
+            
+            .sidebar {
+                width: 100%;
+                min-width: 100%;
+                height: 40vh; /* 移动端侧边栏高度 */
+            }
+            
+            .main-content {
+                height: 60vh; /* 移动端主内容高度 */
+            }
+            
+            .content-header {
+                padding: 1rem;
+            }
+            
+            .content-body {
+                padding: 1rem;
+            }
+            
+            .page-title {
+                font-size: 1.25rem;
+            }
+        }
+
+        /* 加载动画 */
+        .loading {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 200px;
+            color: var(--text-muted);
+        }
+
+        .spinner {
+            width: 32px;
+            height: 32px;
+            border: 3px solid var(--border-light);
+            border-top: 3px solid var(--primary-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 0.75rem;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* 内容更新动画 */
+        .content-updated {
+            animation: fadeInUp 0.4s ease-out;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* 烟花动画 */
+        @keyframes firework {
+            0% {
+                transform: scale(1);
+                opacity: 1;
+            }
+            100% {
+                transform: scale(20);
+                opacity: 0;
+            }
+        }
+    </style>
 </head>
 <body>
-    <header>
-        <h1>我的知识库</h1>
-        <div class="search-box">
-            <input type="text" id="searchInput" placeholder="搜索文章...">
-            <div id="searchResults"></div>
-        </div>
-    </header>
-    
-    <nav id="sidebar"></nav>
-    
-    <main id="content">
-        <!-- Markdown内容将动态加载到这里 -->
-    </main>
+    <div class="app-container">
+        <!-- 侧边栏 -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">
+                    <span class="logo-icon"></span>
+                    <span class="logo-text">  Nuki Wiki [RE]</span>
+                </div>
+                <button class="theme-toggle" id="theme-toggle">
+                    <span class="theme-icon">🌙</span>
+                    <span>切换主题</span>
+                </button>
+            </div>
+            <div class="sidebar-content">
+                <nav id="file-tree" class="file-tree">
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        <span>加载文档...</span>
+                    </div>
+                </nav>
+            </div>
+        </aside>
 
-    <!-- 依赖库 -->
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.6.0/highlight.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/lunr@2.3.9/lunr.min.js"></script>
+        <!-- 主内容 -->
+        <main class="main-content">
+            <header class="content-header">
+                <h1 class="page-title">
+                    <span></span>
+                    内容
+                </h1>
+            </header>
+            <div class="content-body">
+                <article id="content" class="markdown-content">
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        <span>正在加载内容...</span>
+                    </div>
+                </article>
+            </div>
+        </main>
+    </div>
+
+    <!-- 烟花容器 -->
+    <div id="fireworks-container" class="fireworks-container"></div>
+
+    <!-- 脚本 -->
+    <script src="script.js"></script>
     
-    <!-- 本地脚本 -->
-    <script src="js/main.js"></script>
-    <script src="search/search.js"></script>
+    <!-- 加载超时处理 -->
+    <script>
+        setTimeout(() => {
+            const content = document.getElementById('content');
+            if (content && content.querySelector('.loading')) {
+                content.innerHTML = `
+                    <div style="text-align: center; padding: 3rem 1rem;">
+                        <div style="font-size: 3rem; margin-bottom: 1rem;">⏰</div>
+                        <h2 style="color: var(--text-primary); margin-bottom: 1rem;">加载超时</h2>
+                        <p style="color: var(--text-secondary); margin-bottom: 2rem;">
+                            页面加载时间过长，请检查网络连接或刷新页面重试。
+                        </p>
+                        <button onclick="location.reload()" style="
+                            padding: 0.75rem 1.5rem;
+                            background: var(--primary-color);
+                            color: white;
+                            border: none;
+                            border-radius: var(--radius-md);
+                            cursor: pointer;
+                            font-size: 1rem;
+                            transition: var(--transition);
+                        ">🔄 重新加载</button>
+                    </div>
+                `;
+            }
+        }, 8000);
+    </script>
 </body>
 </html>
