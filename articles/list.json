@@ -1,8 +1,0 @@
-[
-  {
-    "id": 1,
-    "title": "欢迎来到我的知识库",
-    "file": "welcome.md",
-    "contentPreview": "欢迎来到我的知识库 这里是关于技术文档的集合，主要包含： - Python 开发技巧 - Web 前端实践 - Linux 系统管理 python print(\"Hello World\")"
-  }
-]
