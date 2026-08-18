@@ -680,10 +680,10 @@
             if (content && content.querySelector('.loading')) {
                 content.innerHTML = `
                     <div style="text-align: center; padding: 3rem 1rem;">
-                        <div style="font-size: 3rem; margin-bottom: 1rem;">⏰</div>
+                        <div style="font-size: 3rem; margin-bottom: 1rem;"></div>
                         <h2 style="color: var(--text-primary); margin-bottom: 1rem;">加载超时</h2>
                         <p style="color: var(--text-secondary); margin-bottom: 2rem;">
-                            页面加载时间过长，请检查网络连接或刷新页面重试。
+                            啊哦，页面加载时间过长，请检查网络连接或刷新页面重试。
                         </p>
                         <button onclick="location.reload()" style="
                             padding: 0.75rem 1.5rem;
@@ -694,7 +694,7 @@
                             cursor: pointer;
                             font-size: 1rem;
                             transition: var(--transition);
-                        ">🔄 重新加载</button>
+                        ">重新加载</button>
                     </div>
                 `;
             }
