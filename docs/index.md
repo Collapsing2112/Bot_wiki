@@ -1,6 +1,6 @@
 # 首页
 
-<img src="/assets/adapter.png" width="1100px" title="版本更新"><br>
+<img src="assets/adapter.png" width="1100px" title="版本更新"><br>
 
 ***
 
