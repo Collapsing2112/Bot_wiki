@@ -43,4 +43,4 @@
 > Made from FuLuzzX
 > 2025/9/1 17:32最后一次编写，2025/8/31 12:00开始编写
 
-> <img src="/assets/arknights.png" width="700px" title="交给你了,M3."><br>
+> <img src="assets/arknights.png" width="700px" title="交给你了,M3."><br>

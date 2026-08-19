@@ -508,7 +508,7 @@ class DocumentViewer {
             
             /* 分类之间的分割线 */
             .category + .category {
-                border-top: 1px solid var(--border-light);
+                border-top: 0px solid var(--border-light);
                 padding-top: 1rem;
                 margin-top: 1rem;
             }
@@ -549,7 +549,7 @@ class DocumentViewer {
             
             /* 分类样式 */
             .category {
-                margin-bottom: 1rem;
+                margin-bottom: -1.45rem;
             }
             
             .category-header {
@@ -888,6 +888,21 @@ class DocumentViewer {
             #custom-modal .modal-markdown-content::-webkit-scrollbar-thumb:hover {
                 background: var(--scrollbar-thumb-hover) !important;
             }
+
+
+            /* 分割线保持原有的 12px 上下边距，但避免与区块间距叠加，可使用 padding 替代 */
+            .category-divider,
+            .ender-divider {
+                margin: 0;           /* 去掉分割线自身外边距 */
+                border: none;
+                border-top: 0px solid #e0e0e0;
+            }
+            /* 然后为分割线前后的区块添加内边距来实现间距 */
+            .category:last-of-type,
+            .bottom-standalone-section:last-of-type {
+                margin-bottom: 10px;
+            }
+
         `;
         document.head.appendChild(style);
     }
@@ -896,24 +911,68 @@ class DocumentViewer {
      * 创建文件结构
      */
     createFileStructure() {
-        this.fileStructure = {
-            standalone: [
-                { name: "首页", path: "docs/index.md" },
-                { name: "更新日志", path: "docs/version.md" }
+        // 原始分类数据
+        const rawCategories = {
+            "NoneBot开发": [
+                { name: "首页", path: "docs/NoneBot开发日志/index.md" },
+                { name: "认识NoneBot", path: "docs/NoneBot开发日志/nonebot.md" },
             ],
-            categories: {
-                "NoneBot开发日志": [
-                    { name: "首页", path: "docs/NoneBot开发日志/index.md"},
-                    { name: "认识NoneBot", path: "docs/NoneBot开发日志/nonebot.md" },
-                ],
-                "Nuki开发日志": [
-                    { name: "首页", path: "docs/Nuki开发日志/index.md"},
-                    { name: "认识Adapter", path: "docs/Nuki开发日志/adapter.md" },
-                ]
+            "Nuki开发": [
+                { name: "首页", path: "docs/Nuki开发日志/index.md" },
+                { name: "认识Adapter", path: "docs/Nuki开发日志/adapter.md" },
+            ]
+        };
+
+        // 输入列表（含可选的 category）
+        const standaloneInput = [
+            { name: "首页", path: "docs/index.md" },                         // 无 category → 上方独立
+            { name: "更新日志", path: "docs/version.md" },                  // 无 category → 上方独立           // 归类
+            { name: "Github介绍", path: "README.md", category: "" , ender: 1 },  
+            { name: "Python基础语法", path: "docs/python.md", category: "" },  
+        ];
+
+        // 构建最终分类（复制原始分类）
+        const categories = {};
+        Object.keys(rawCategories).forEach(key => {
+            categories[key] = [...rawCategories[key]];
+        });
+
+        // 结果容器
+        const standaloneFinal = [];      // 上方独立项（无 category）
+        const bottomStandalone = [];     // 下方独立项（category === "" 且无 ender 或 ender !== 1）
+        const enderStandalone = [];      // 最终底部项（category === "" 且 ender === 1）
+
+        // 遍历输入，分配归属
+        standaloneInput.forEach(item => {
+            if (item.category === undefined) {
+                standaloneFinal.push({ name: item.name, path: item.path });
+            } else if (item.category === '') {
+                // category 为空字符串：检查 ender
+                if (item.ender === 1) {
+                    enderStandalone.push({ name: item.name, path: item.path });
+                } else {
+                    bottomStandalone.push({ name: item.name, path: item.path });
+                }
+            } else if (typeof item.category === 'string' && item.category.trim() !== '') {
+                // 非空分类名 → 归入对应分类
+                const catName = item.category.trim();
+                if (!categories[catName]) {
+                    categories[catName] = [];
+                }
+                categories[catName].push({ name: item.name, path: item.path });
             }
+        });
+
+        // 赋值给实例属性
+        this.fileStructure = {
+            standalone: standaloneFinal,
+            categories: categories,
+            bottomStandalone: bottomStandalone,
+            enderStandalone: enderStandalone   // 新增
         };
     }
 
+    
     /**
      * 初始化分类状态
      */
@@ -923,6 +982,7 @@ class DocumentViewer {
             if (saved) {
                 this.categoryStates = JSON.parse(saved);
             } else {
+                // 仅对当前存在的分类（多项）设置默认展开
                 Object.keys(this.fileStructure.categories).forEach(category => {
                     this.categoryStates[this.getCategoryId(category)] = true;
                 });
@@ -934,7 +994,6 @@ class DocumentViewer {
             });
         }
     }
-
     /**
      * 渲染文件树
      */
@@ -943,56 +1002,100 @@ class DocumentViewer {
         if (!fileTree) return;
 
         let html = '';
-        
-        // 渲染单独文章
+
+        // ========== 1. 上方独立区 ==========
         html += '<div class="standalone-section">';
         this.fileStructure.standalone.forEach(file => {
             html += `
                 <a href="#" 
-                   class="file-link standalone-link ${file.path === this.currentFilePath ? 'active' : ''}" 
-                   data-path="${file.path}">
+                class="file-link standalone-link ${file.path === this.currentFilePath ? 'active' : ''}" 
+                data-path="${file.path}">
                     ${file.name}
                 </a>
             `;
         });
         html += '</div>';
-        
-        // 渲染分类文章
+
+        if (this.fileStructure.bottomStandalone && this.fileStructure.bottomStandalone.length > 0) {
+            // 可添加一条分割线（可选）
+            this.fileStructure.bottomStandalone.forEach(file => {
+                html += `
+                    <a href="#" 
+                    class="file-link standalone-link ${file.path === this.currentFilePath ? 'active' : ''}" 
+                    data-path="${file.path}">
+                        ${file.name}
+                    </a>
+                `;
+            });
+            html += `</div>`;
+        }
+
+        // ========== 2. 分类区（动态判断是否可折叠） ==========
         Object.keys(this.fileStructure.categories).forEach(category => {
             const categoryId = this.getCategoryId(category);
-            const isExpanded = this.categoryStates[categoryId] !== false;
             const files = this.fileStructure.categories[category];
-            
-            html += `
-                <div class="category" data-category="${categoryId}">
-                    <div class="category-header" data-category-id="${categoryId}">
-                        <span class="category-name">${category}</span>
-                        <span class="category-arrow ${isExpanded ? '' : 'collapsed'}">▼</span>
-                    </div>
-                    <div class="category-files" style="display: ${isExpanded ? 'block' : 'none'}">
-                        ${files.map(file => `
-                            <a href="#" 
-                               class="file-link ${file.path === this.currentFilePath ? 'active' : ''}" 
-                               data-path="${file.path}">
-                                ${file.name}
-                            </a>
-                        `).join('')}
-                    </div>
-                </div>
-            `;
+            const isMulti = files.length > 1;        // 是否多项（可折叠）
+            // 只有多项时才使用存储的状态，单项始终展开
+            const isExpanded = isMulti ? (this.categoryStates[categoryId] !== false) : true;
+
+            html += `<div class="category" data-category="${categoryId}">`;
+
+            // 分类标题行
+            html += `<div class="category-header" data-category-id="${categoryId}">`;
+            html += `<span class="category-name">${category}</span>`;
+            if (isMulti) {
+                // 仅多项显示箭头
+                html += `<span class="category-arrow ${isExpanded ? '' : 'collapsed'}">▼</span>`;
+            }
+            html += `</div>`;
+
+            // 文件列表（单项始终 display:block，多项根据状态）
+            const displayStyle = isMulti ? (isExpanded ? 'block' : 'none') : 'block';
+            html += `<div class="category-files" style="display: ${displayStyle}">`;
+            files.forEach(file => {
+                html += `
+                    <a href="#" 
+                    class="file-link ${file.path === this.currentFilePath ? 'active' : ''}" 
+                    data-path="${file.path}">
+                        ${file.name}
+                    </a>
+                `;
+            });
+            html += `</div>`;
+
+            html += `</div>`;
         });
-        
+
+        html += `</div>`;
+        // ========== 4. 最终底部区（category="" 且 ender=1）—— 最后渲染 ==========
+        if (this.fileStructure.enderStandalone && this.fileStructure.enderStandalone.length > 0) {
+            // 再加一条分割线（与普通底部区分，可选）
+            html += `</div>`;
+            this.fileStructure.enderStandalone.forEach(file => {
+                html += `
+                    <a href="#" 
+                    class="file-link standalone-link ${file.path === this.currentFilePath ? 'active' : ''}" 
+                    data-path="${file.path}">
+                        ${file.name}
+                    </a>
+                `;
+            });
+            html += `</div>`;
+        }
+
         fileTree.innerHTML = html;
         this.bindFileTreeEvents();
         console.log('File tree rendered');
     }
-
+    
     /**
      * 绑定文件树事件
      */
     bindFileTreeEvents() {
-        // 分类展开/收缩
+        // 分类展开/收缩：只对含有 .category-arrow 的 header 绑定
         document.querySelectorAll('.category-header').forEach(header => {
+            const arrow = header.querySelector('.category-arrow');
+            if (!arrow) return; // 单项无箭头，跳过绑定
             header.addEventListener('click', (e) => {
                 e.preventDefault();
                 const categoryId = header.getAttribute('data-category-id');
@@ -1000,7 +1103,7 @@ class DocumentViewer {
             });
         });
 
-        // 文件链接点击
+        // 文件链接点击（保持不变）
         document.querySelectorAll('.file-link').forEach(link => {
             link.addEventListener('click', (e) => {
                 e.preventDefault();

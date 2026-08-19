@@ -1006,3 +1006,16 @@ a:focus,
         height: 5px !important;
     }
 }
+
+.category-divider {
+    border: none;
+    border-top: 1px solid #e0e0e0;   /* 分割线颜色 */
+    margin: 12px 0;                  /* 上下各 12px 间距，可根据喜好调整 */
+}
+
+.category-divider {
+    border: none;
+    border-top: 2px dashed #ccc;   /* 虚线样式 */
+    margin: 16px 0;
+    opacity: 0.6;
+}
