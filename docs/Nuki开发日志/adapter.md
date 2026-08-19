@@ -1,4 +1,8 @@
-# 认识 MaiBot-Napcat-Adapter
+# 认识 MaiBot-Napcat-Adapter <span style="font-size: 15px;">`文章分级[S]`</span>
+
+<img src="assets\showing\6.png" width="1100px" title="版本更新"><br>
+
+***
 
 #### MaiBot-Napcat-Adapter究竟是干什么用的？
 
@@ -653,8 +657,8 @@ async def handle_emoji_like_notify(self, raw_message: dict, group_id: int) -> tu
 ***
 
 #### 鸣谢
-* [Claude AI](https://xsimplechat.com/) - 帮笔者完成了网站的CSS文件编写，~~尽管我几把蛋重写了不下十遍~~
-* [Nuki的秘密基地](https://qm.qq.com/q/iwuW1RYDDy) / [08の咖啡厅](https://qm.qq.com/q/uoqLitBYBO) 群友，给我支持和鼓励！
+* [Claude AI](https://xsimplechat.com/) - 帮笔者完成了网站的CSS文件编写
+* `Nuki的秘密基地`(该群现已废弃) / `零八咖啡厅`（该群现处于封闭） 群友，给我支持和鼓励！
 * [MaiMai麦麦](https://docs.mai-mai.org/) 给了我能创建一个属于自己AI的机会
 * 以及，你 能看我精心制作的这个教程和Nuki Wiki，再次感谢您的支持
 
