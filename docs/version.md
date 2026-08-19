@@ -8,7 +8,7 @@
 #### Ver1.1.0 
 * 优化Nuki Wiki的排版，重写Script.js代码，重写Style.css代码
 
-> <img src="/assets/ver110.png" width="700px" title="Nuki Wiki Ver1.1.0"><br>
+> <img src="assets/ver110.png" width="700px" title="Nuki Wiki Ver1.1.0"><br>
 
 ~~可以看到以前的Nuki Wiki排版有多丑~~
 
