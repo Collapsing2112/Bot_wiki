@@ -20,9 +20,11 @@ class DocumentViewer {
         try {
             this.createFireworksContainer();
             this.loadTheme();
+            this.updateScrollbarStyles();
             this.loadFireworksState();
+            await this.initCarousel();
             this.createFileStructure();
-            
+
             // 添加文件存在性检查
             await this.filterExistingFiles();
             
@@ -32,7 +34,9 @@ class DocumentViewer {
             this.initMouseFireworks();
             this.injectStyles();
             await this.loadDefaultFile();
-            
+            await this.checkNewMdUpdate();
+            this.updateScrollbarStyles()
+
             console.log('Nuki Wiki initialized successfully');
         } catch (error) {
             console.error('Initialization failed:', error);
@@ -40,6 +44,379 @@ class DocumentViewer {
         }
     }
 
+    /**
+     * 动态生成滚动条样式（不使用任何 CSS 变量，直接硬编码颜色）
+     */
+    updateScrollbarStyles() {
+        // 移除旧的动态样式标签
+        const oldStyle = document.getElementById('dynamic-scrollbar-style');
+        if (oldStyle) oldStyle.remove();
+
+        // 根据当前主题选择颜色
+        const isDark = this.isDarkMode;
+        const trackColor = isDark ? '#2d333b' : '#f1f1f1';
+        const thumbColor = isDark ? '#545d68' : '#c1c1c1';
+        const thumbHoverColor = isDark ? '#6e7681' : '#a8a8a8';
+
+        const style = document.createElement('style');
+        style.id = 'dynamic-scrollbar-style';
+        style.textContent = `
+            /* 公告弹窗滚动条 - 由 JS 控制，不依赖 CSS 变量 */
+            #custom-modal .modal-markdown-content {
+                scrollbar-width: thin !important;
+                scrollbar-color: ${thumbColor} ${trackColor} !important;
+            }
+            #custom-modal .modal-markdown-content::-webkit-scrollbar {
+                width: 8px !important;
+                height: 8px !important;
+            }
+            #custom-modal .modal-markdown-content::-webkit-scrollbar-track {
+                background: ${trackColor} !important;
+                border-radius: 4px !important;
+            }
+            #custom-modal .modal-markdown-content::-webkit-scrollbar-thumb {
+                background: ${thumbColor} !important;
+                border-radius: 4px !important;
+                border: 2px solid ${trackColor} !important;
+            }
+            #custom-modal .modal-markdown-content::-webkit-scrollbar-thumb:hover {
+                background: ${thumbHoverColor} !important;
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
+    /**
+     * 初始化右下角轮播
+     */
+    async initCarousel() {
+        const container = document.getElementById('carousel-container');
+        const imgElement = document.getElementById('carousel-image');
+        const indicators = document.getElementById('carousel-indicators');
+        if (!container || !imgElement) return;
+
+        try {
+            // 1. 加载图片列表（从 JSON）
+            const response = await fetch('assets/showing/images.json?t=' + Date.now());
+            if (!response.ok) {
+                console.warn('images.json not found, using fallback list');
+                this.loadCarouselImages(['default.jpg']); // 备选
+                return;
+            }
+            const imageList = await response.json();
+            if (!Array.isArray(imageList) || imageList.length === 0) {
+                console.warn('Empty image list, using fallback');
+                this.loadCarouselImages(['default.jpg']);
+                return;
+            }
+
+            // 2. 构建完整图片路径
+            const basePath = 'assets/showing/';
+            const fullPaths = imageList.map(name => basePath + name);
+
+            // 3. 启动轮播
+            this.carouselImages = fullPaths;
+            this.currentIndex = 0;
+            this.carouselInterval = null;
+
+            // 渲染指示点
+            indicators.innerHTML = fullPaths.map((_, i) => 
+                `<span class="carousel-dot ${i === 0 ? 'active' : ''}" data-index="${i}"></span>`
+            ).join('');
+
+            // 显示第一张
+            this.showCarouselImage(0);
+
+            // 点击指示点切换
+            indicators.querySelectorAll('.carousel-dot').forEach(dot => {
+                dot.addEventListener('click', (e) => {
+                    const index = parseInt(e.target.dataset.index);
+                    this.showCarouselImage(index);
+                    this.resetCarouselTimer();
+                });
+            });
+
+            // 启动自动轮播（每4秒切换）
+            this.startCarouselTimer();
+
+        } catch (error) {
+            console.error('Carousel init failed:', error);
+            this.loadCarouselImages(['default.jpg']);
+        }
+    }
+
+    /**
+     * 显示指定索引的图片
+     */
+    showCarouselImage(index) {
+        const img = document.getElementById('carousel-image');
+        const dots = document.querySelectorAll('.carousel-dot');
+        if (!img) return;
+
+        if (this.carouselImages && this.carouselImages.length > 0) {
+            this.currentIndex = index % this.carouselImages.length;
+            img.src = this.carouselImages[this.currentIndex];
+            img.alt = `轮播图 ${this.currentIndex + 1}`;
+
+            // 更新指示点
+            dots.forEach((dot, i) => {
+                dot.classList.toggle('active', i === this.currentIndex);
+            });
+        }
+    }
+
+    /**
+     * 切换到下一张
+     */
+    nextCarouselImage() {
+        if (!this.carouselImages || this.carouselImages.length === 0) return;
+        this.showCarouselImage(this.currentIndex + 1);
+    }
+
+    /**
+     * 启动自动轮播
+     */
+    startCarouselTimer() {
+        this.stopCarouselTimer();
+        this.carouselInterval = setInterval(() => {
+            this.nextCarouselImage();
+        }, 4000);
+    }
+
+    /**
+     * 停止自动轮播
+     */
+    stopCarouselTimer() {
+        if (this.carouselInterval) {
+            clearInterval(this.carouselInterval);
+            this.carouselInterval = null;
+        }
+    }
+
+    /**
+     * 重置定时器（用户手动切换后重新计时）
+     */
+    resetCarouselTimer() {
+        this.stopCarouselTimer();
+        this.startCarouselTimer();
+    }
+
+    /**
+     * 备选：硬编码图片列表（当 JSON 加载失败时）
+     */
+    loadCarouselImages(fallbackList) {
+        const basePath = 'assets/showing/';
+        this.carouselImages = fallbackList.map(name => basePath + name);
+        this.currentIndex = 0;
+        this.showCarouselImage(0);
+        this.startCarouselTimer();
+    }
+
+    async checkNewMdUpdate() {
+        const filePath = 'docs/new.md';
+        try {
+            const response = await fetch(`${filePath}?t=${Date.now()}`);
+            if (!response.ok) {
+                console.warn('new.md not found, skipping check');
+                return;
+            }
+            const currentContent = await response.text();
+
+            const storageKey = 'nuki_new_md_content';
+            const savedContent = localStorage.getItem(storageKey);
+
+            let shouldShow = false;
+            if (savedContent === null) {
+                shouldShow = true;
+                console.log('First visit: showing new.md');
+            } else if (savedContent !== currentContent) {
+                shouldShow = true;
+                console.log('new.md updated: showing new content');
+            }
+
+            if (shouldShow) {
+                // 使用自定义模态框显示内容
+                this.showModal('公告', currentContent);
+                localStorage.setItem(storageKey, currentContent);
+            }
+        } catch (error) {
+            console.error('Failed to check new.md update:', error);
+        }
+    }
+
+    /**
+     * 创建一个美观的自定义模态框
+     * @param {string} title - 弹窗标题
+     * @param {string} content - 显示的内容（支持 HTML）
+     */
+    showModal(title, content) {
+        // 移除旧模态框
+        const existingModal = document.getElementById('custom-modal');
+        if (existingModal) existingModal.remove();
+
+        const modal = document.createElement('div');
+        modal.id = 'custom-modal';
+        modal.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(4px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+            animation: fadeIn 0.3s ease;
+            padding: 20px;
+            box-sizing: border-box;
+        `;
+
+        const modalContent = document.createElement('div');
+        modalContent.style.cssText = `
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            max-width: 720px;
+            width: 100%;
+            max-height: 85vh;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+            display: flex;
+            flex-direction: column;
+            animation: slideUp 0.3s ease;
+            border: 1px solid var(--border-color);
+            overflow: hidden;   /* ← 关键：防止内容撑开 */
+        `;
+
+        // ---- 标题栏 ----
+        const header = document.createElement('div');
+        header.style.cssText = `
+            padding: 18px 24px;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-shrink: 0;
+        `;
+        header.innerHTML = `
+            <h2 style="margin: 0; font-size: 1.3rem; font-weight: 600; color: var(--text-primary);">
+                ${title}
+            </h2>
+            <button id="modal-close-btn" style="
+                background: none;
+                border: none;
+                font-size: 1.8rem;
+                line-height: 1;
+                cursor: pointer;
+                color: var(--text-secondary);
+                padding: 0 8px;
+                transition: color 0.2s;
+                border-radius: 4px;
+            ">&times;</button>
+        `;
+
+        // ---- 内容区（支持 Markdown） ----
+        const body = document.createElement('div');
+        body.className = 'markdown-content modal-markdown-content';
+        body.style.cssText = `
+            padding: 24px;
+            overflow-y: auto;      /* 垂直滚动 */
+            overflow-x: auto;      /* 水平滚动（应对宽表格/代码） */
+            flex: 1;
+            line-height: 1.6;
+            font-size: 0.95rem;
+            min-height: 0;         /* ← 关键：允许 flex 子项收缩 */
+            background: var(--bg-primary);
+            color: var(--text-primary);
+        `;
+
+        // 使用 marked 渲染 Markdown（如果可用）
+        let htmlContent = content;
+        if (typeof marked !== 'undefined') {
+            try {
+                htmlContent = marked.parse(content);
+            } catch (e) {
+                console.warn('Markdown parse failed, fallback to plain text', e);
+            }
+        }
+        body.innerHTML = htmlContent;
+
+        // 如果 hljs 存在，高亮代码块（marked 可能已经做了，但以防万一）
+        if (typeof hljs !== 'undefined') {
+            body.querySelectorAll('pre code').forEach((block) => {
+                hljs.highlightElement(block);
+            });
+        }
+
+        // ---- 底部按钮 ----
+        const footer = document.createElement('div');
+        footer.style.cssText = `
+            padding: 12px 24px;
+            background: var(--bg-secondary);
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            justify-content: flex-end;
+            flex-shrink: 0;
+        `;
+        const closeBtn = document.createElement('button');
+        closeBtn.textContent = '关闭';
+        closeBtn.style.cssText = `
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 8px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: background 0.2s, transform 0.1s;
+        `;
+        closeBtn.addEventListener('mouseenter', () => {
+            closeBtn.style.background = '#3b82f6';
+        });
+        closeBtn.addEventListener('mouseleave', () => {
+            closeBtn.style.background = 'var(--primary-color)';
+        });
+        closeBtn.addEventListener('click', () => this.closeModal());
+        footer.appendChild(closeBtn);
+
+        // 组装
+        modalContent.appendChild(header);
+        modalContent.appendChild(body);
+        modalContent.appendChild(footer);
+        modal.appendChild(modalContent);
+        document.body.appendChild(modal);
+
+        // 关闭事件
+        const closeX = modal.querySelector('#modal-close-btn');
+        closeX.addEventListener('click', () => this.closeModal());
+
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) this.closeModal();
+        });
+
+        const escHandler = (e) => {
+            if (e.key === 'Escape') {
+                this.closeModal();
+                document.removeEventListener('keydown', escHandler);
+            }
+        };
+        document.addEventListener('keydown', escHandler);
+    }
+
+    /**
+     * 关闭模态框
+     */
+    closeModal() {
+        const modal = document.getElementById('custom-modal');
+        if (modal) {
+            modal.style.opacity = '0';
+            modal.style.transition = 'opacity 0.3s';
+            setTimeout(() => modal.remove(), 300);
+        }
+    }
         /**
      * 检测文件是否存在
      */
@@ -111,25 +488,22 @@ class DocumentViewer {
             
             
             /* Markdown 内容中的分割线 */
+            /* 主内容中的分割线 - 纯白色细线 */
             .markdown-content hr {
                 border: none;
-                height: 2px;
-                background: linear-gradient(90deg, 
-                    transparent,
-                    var(--border-light),
-                    transparent
-                );
-                margin: 0rem 0;
-                border-radius: 1px;
+                height: 1px;
+                background: #000000; /* 纯白 */
+                margin: 1.5rem 0;
+                opacity: 0.8;        /* 微调透明度，避免太白刺眼，但保持清晰可见 */
             }
             
             /* 深色模式下的分割线 */
             [data-theme="dark"] .markdown-content hr {
-                background: linear-gradient(90deg, 
-                    transparent,
-                    var(--border-light),
-                    transparent
-                );
+                border: none;
+                height: 1px;
+                background: var(--text-primary); /* 自动跟随文字颜色 */
+                opacity: 0.3;
+                margin: 1.5rem 0;
             }
             
             /* 分类之间的分割线 */
@@ -489,6 +863,31 @@ class DocumentViewer {
                 0% { transform: rotate(0deg); }
                 100% { transform: rotate(360deg); }
             }
+
+            #custom-modal .modal-markdown-content {
+                scrollbar-width: thin !important;
+                scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track) !important;
+            }
+
+            #custom-modal .modal-markdown-content::-webkit-scrollbar {
+                width: 8px !important;
+                height: 8px !important;
+            }
+
+            #custom-modal .modal-markdown-content::-webkit-scrollbar-track {
+                background: var(--scrollbar-track) !important;
+                border-radius: 4px !important;
+            }
+
+            #custom-modal .modal-markdown-content::-webkit-scrollbar-thumb {
+                background: var(--scrollbar-thumb) !important;
+                border-radius: 4px !important;
+                border: 2px solid var(--scrollbar-track) !important;
+            }
+
+            #custom-modal .modal-markdown-content::-webkit-scrollbar-thumb:hover {
+                background: var(--scrollbar-thumb-hover) !important;
+            }
         `;
         document.head.appendChild(style);
     }
@@ -504,9 +903,11 @@ class DocumentViewer {
             ],
             categories: {
                 "NoneBot开发日志": [
-                    { name: "初识NoneBot", path: "docs/NoneBot开发日志/index.md" },
+                    { name: "首页", path: "docs/NoneBot开发日志/index.md"},
+                    { name: "认识NoneBot", path: "docs/NoneBot开发日志/nonebot.md" },
                 ],
                 "Nuki开发日志": [
+                    { name: "首页", path: "docs/Nuki开发日志/index.md"},
                     { name: "认识Adapter", path: "docs/Nuki开发日志/adapter.md" },
                 ]
             }
@@ -663,6 +1064,8 @@ class DocumentViewer {
         if (themeToggle) {
             themeToggle.addEventListener('click', () => this.toggleTheme());
         }
+
+        this.updateScrollbarStyles();
 
         // 烟花切换
         const fireworksToggle = document.getElementById('fireworks-toggle');
