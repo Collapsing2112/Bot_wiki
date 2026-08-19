@@ -1,4 +1,5 @@
-# Nuki Wiki RE-Github <span style="font-size: 15px;">`碍于Github的代码格式要求，可能该文件不能正常显示在Nuki Wiki！`</span>
+# Nuki Wiki RE-Github 
+> `碍于Github的代码格式要求，可能该文件不能正常显示在Nuki Wiki！`
 
 <img src="assets/showing/7.png" width="1100px" title="Nuki Wiki"><br>
 
