@@ -623,7 +623,7 @@ class DocumentViewer {
                 background: var(--bg-code) !important;
                 border: 1px solid var(--border-light);
                 border-radius: 8px;
-                padding: 2.7rem 1.2rem;
+                padding: 2.7rem 1rem 1rem 1.1rem;
                 margin: 1.3rem 0;
                 overflow-x: auto;
                 font-family: 'Cascadia Code', 'JetBrains Mono', 'Fira Code', Monaco, 'Courier New', monospace;
@@ -690,7 +690,7 @@ class DocumentViewer {
             /* 优化的引用框样式 */
             .markdown-content blockquote {
                 position: relative;
-                margin: 1.5rem 0;
+                margin: 1rem 0;
                 padding: 0.7rem 0.7rem 0.7rem 2.5rem;
                 background: var(--bg-secondary);
                 border-left: 4px solid var(--primary-color);
@@ -927,7 +927,7 @@ class DocumentViewer {
         const standaloneInput = [
             { name: "首页", path: "docs/index.md" },                         // 无 category → 上方独立
             { name: "更新日志", path: "docs/version.md" },                  // 无 category → 上方独立           // 归类
-            { name: "Github介绍", path: "README.md", category: "" , ender: 1 },  
+            { name: "Github介绍", path: "docs/README.md", category: "" , ender: 1 },  
             { name: "Python基础语法", path: "docs/python.md", category: "" },  
         ];
 
